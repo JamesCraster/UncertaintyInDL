@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from torchviz import make_dot
 
 NUM_TASKS = 1
-EPOCHS_PER_TASK = 1000
+EPOCHS_PER_TASK = 100
 
 tasks = []
 model = BasicNN(IMAGE_SIZE, 20, 10)
