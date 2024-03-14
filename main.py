@@ -7,18 +7,19 @@ from models.basic_nn import BasicNN
 import matplotlib.pyplot as plt
 from torchviz import make_dot
 
-NUM_TASKS = 1
+NUM_TASKS = 3
 EPOCHS_PER_TASK = 100
 
 tasks = []
-model = BasicNN(IMAGE_SIZE, 20, 10)
+model = BasicNN(IMAGE_SIZE, 100, 10)
 def train_basic_nn(model, tasks):
     loss_fn = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), 1e-3)
+    optimizer = torch.optim.Adam(model.parameters(), 5e-4)
 
     # run training loop
     losses = []
     for task in range(0, NUM_TASKS):
+        print(f'Task: {task}')
         # generate a new permutation of the mnist data
         train_dataset, test_dataset = get_permuted_mnist()
         # store both the train and test data loaders for this task
@@ -26,14 +27,20 @@ def train_basic_nn(model, tasks):
         for epoch in range(EPOCHS_PER_TASK):
             for batch_inputs, batch_targets in train_dataset:
                 output = model(batch_inputs)
-                loss = model.loss(output, batch_targets)
-                #loss = loss_fn(output, batch_targets)
+                include_kl = task != 0
+                loss = model.loss(batch_inputs, batch_targets, len(train_dataset), include_kl)
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
                 if epoch % 20 == 0:
-                    print(f"Loss is: {loss.item()}")
+                    #print(f"Loss is: {loss.item()}")
                     losses.append(loss.item())
+            if loss.item() < 0.1:
+                model.update_prior()
+                break
+        model.update_prior()
+    plt.plot(losses)
+    plt.show()
 
 def test_basic_nn(model, test_dataset):
     with torch.no_grad():

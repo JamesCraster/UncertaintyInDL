@@ -10,7 +10,7 @@ class VariationalLayer(nn.Module):
         # in the paper, the prior used for weights and biases is a normal with
         # zero mean and zero variance
 
-        # to constrain variance to be positive, store v instead where v = 2 * log(variance)
+        # to constrain variance to be positive, store v instead where v = log(variance)
 
         self.prior_W_m = torch.zeros(output_size, input_size, requires_grad=False) 
         self.prior_W_v = torch.zeros(output_size, input_size, requires_grad=False)
@@ -24,44 +24,92 @@ class VariationalLayer(nn.Module):
         self.posterior_b_m = nn.Parameter(torch.rand(output_size))
         nn.init.kaiming_uniform_(self.posterior_W_m, a=math.sqrt(5))
 
-        # for the first task, don't give the weights any uncertainty
-        self.posterior_W_v = math.log(1e-6)
-        self.posterior_b_v = math.log(1e-6)
-        
+        # for the first task, give the weights low variance
+        self.posterior_W_v = torch.full((output_size, input_size), math.log(1e-6))
+        self.posterior_b_v = torch.full((output_size,), math.log(1e-6))
+               
     def forward(self, x):
-        output = x.matmul(self.posterior_W_m.t())
-        output += self.posterior_b_m
+        # perform the reparameterisation trick
+        weight_epsilons = torch.normal(mean=0, std=1, size=self.posterior_W_m.shape)
+        output = x.matmul((self.posterior_W_m + torch.exp(0.5 * self.posterior_W_v) * weight_epsilons).t())
+        
+        bias_epsilons = torch.normal(mean=0, std=1, size=self.posterior_b_m.shape)
+
+        output += self.posterior_b_m + (torch.exp(0.5 * self.posterior_b_v) * bias_epsilons).t()
         return output
+    
+    def _kl_divergence(self):
+        # compute the kl divergence between the posterior and the prior
+        
+        alpha = (1/torch.exp(self.prior_W_v)) 
+        # remember when the posterior and prior are equal (at start of new task)
+        # this KL should equal zero
+        # since all the weights are independent, this is effectively just summing
+        # the KL for each weight
+        output = (torch.exp(self.posterior_W_v)/torch.exp(self.prior_W_v)  \
+        + torch.pow((self.posterior_W_m - self.prior_W_m), 2)/torch.exp(self.prior_W_v) - 1 \
+            + self.prior_W_v - self.posterior_W_v ).sum()
+        
+        return 0.5 * output
+        
+
+    def update_prior(self):
+        # update the prior to be the current posterior
+        self.prior_W_m = self.posterior_W_m.detach().clone()
+        self.prior_W_v = self.posterior_W_v.detach().clone()
+        self.prior_b_m = self.posterior_b_m.detach().clone()
+        self.prior_b_v = self.posterior_b_v.detach().clone()
 
 class VCL(nn.Module):
     def __init__(self, input_size, hidden_size, output_size):
         super(VCL, self).__init__()
+
+        self.training_samples = 10
         
-        self.model = nn.Sequential(
+        self.variational_layers = nn.Sequential(
             VariationalLayer(input_size, hidden_size),
-            nn.ReLU(),
-            # in the paper, 2 hidden layers are used
+            # in the original paper, 2 hidden layers are used
             VariationalLayer(hidden_size, hidden_size),
-            nn.ReLU(),
-            VariationalLayer(hidden_size, output_size),
+            VariationalLayer(hidden_size, hidden_size),
+            VariationalLayer(hidden_size, output_size)
         )
 
         # coreset contains examples in episodic memory
         self.coreset = []
 
     def forward(self, x):
-        return self.model(x)
+        relu = nn.ReLU()
+        first_layer = True
+        for layer in self.variational_layers:
+            if not first_layer:
+                x = relu(x)
+            x = layer(x)
+            first_layer = False
+        return x
 
-    def loss(self, output, batch_targets):
-        cross_entropy_loss = torch.nn.CrossEntropyLoss()
+    def loss(self, batch_inputs, batch_targets, training_set_size, include_kl = True):
+        cross_entropy_loss = torch.nn.CrossEntropyLoss()(self(batch_inputs), batch_targets)
         # add log likelihood
-        elbo = - cross_entropy_loss(output, batch_targets)
+        if include_kl:
+            print('cross entropy loss', cross_entropy_loss)
+
+        elbo = - cross_entropy_loss
+        #for i in range(0, self.training_samples-1):
+        #    elbo -= cross_entropy_loss(self(batch_inputs), batch_targets)
+        #elbo /= self.training_samples
         
         # the mean-field assumption is that all weights independent
         # therefore for the KL regularisation, can simply add the KL of each layer
-
+        if include_kl:
+            for layer in self.variational_layers:
+                # without the kl divergence term, the model behaviour is 
+                # empirically indistinguishable from a basic neural network
+                print(f'layer kl, {layer._kl_divergence()}')
+                # TODO - why do I have to divide KL by such a large number???
+                elbo -= layer._kl_divergence() #/ 1000000
+                
         # pytorch minimizes, so multiply by -1
-        return - elbo
+        return -elbo
 
     def prediction(self, input, num_samples=100):
         x = self(input)
@@ -69,6 +117,12 @@ class VCL(nn.Module):
             # for now, just use model forward
             x += self(input)
         return x/num_samples
+
+    def update_prior(self):
+        for layer in self.variational_layers:
+            print(layer._kl_divergence())
+            layer.update_prior()
+            print(layer._kl_divergence())
 
     def update_coreset():
         # TODO use the coreset properly
