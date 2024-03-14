@@ -40,8 +40,6 @@ class VariationalLayer(nn.Module):
     
     def _kl_divergence(self):
         # compute the kl divergence between the posterior and the prior
-        
-        alpha = (1/torch.exp(self.prior_W_v)) 
         # remember when the posterior and prior are equal (at start of new task)
         # this KL should equal zero
         # since all the weights are independent, this is effectively just summing
@@ -49,6 +47,10 @@ class VariationalLayer(nn.Module):
         output = (torch.exp(self.posterior_W_v)/torch.exp(self.prior_W_v)  \
         + torch.pow((self.posterior_W_m - self.prior_W_m), 2)/torch.exp(self.prior_W_v) - 1 \
             + self.prior_W_v - self.posterior_W_v ).sum()
+
+        output += (torch.exp(self.posterior_b_v)/torch.exp(self.prior_b_v)  \
+        + torch.pow((self.posterior_b_m - self.prior_b_m), 2)/torch.exp(self.prior_b_v) - 1 \
+            + self.prior_b_v - self.posterior_b_v ).sum()
         
         return 0.5 * output
         
@@ -90,10 +92,10 @@ class VCL(nn.Module):
     def loss(self, batch_inputs, batch_targets, training_set_size, include_kl = True):
         cross_entropy_loss = torch.nn.CrossEntropyLoss()(self(batch_inputs), batch_targets)
         # add log likelihood
-        if include_kl:
-            print('cross entropy loss', cross_entropy_loss)
+        #if include_kl:
+        #    print('cross entropy loss', cross_entropy_loss)
 
-        elbo = - cross_entropy_loss
+        elbo = cross_entropy_loss
         #for i in range(0, self.training_samples-1):
         #    elbo -= cross_entropy_loss(self(batch_inputs), batch_targets)
         #elbo /= self.training_samples
@@ -104,12 +106,12 @@ class VCL(nn.Module):
             for layer in self.variational_layers:
                 # without the kl divergence term, the model behaviour is 
                 # empirically indistinguishable from a basic neural network
-                print(f'layer kl, {layer._kl_divergence()}')
+                #print(f'layer kl, {layer._kl_divergence()}')
                 # TODO - why do I have to divide KL by such a large number???
-                elbo -= layer._kl_divergence() #/ 1000000
-                
+                elbo += layer._kl_divergence() / training_set_size #/ 1000000
+
         # pytorch minimizes, so multiply by -1
-        return -elbo
+        return elbo
 
     def prediction(self, input, num_samples=100):
         x = self(input)
