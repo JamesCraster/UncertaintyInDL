@@ -4,43 +4,60 @@ import torch.nn as nn
 from permuted_mnist import get_permuted_mnist, IMAGE_SIZE
 from models.vcl import VCL
 from models.basic_nn import BasicNN
-import matplotlib.pyplot as plt
-from torchviz import make_dot
 
-NUM_TASKS = 3
-EPOCHS_PER_TASK = 50
+NUM_TASKS = 10
+EPOCHS_PER_TASK = 20
 
 def train_nn(model, tasks):
-    loss_fn = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), 5e-4)
+    ## a hack specific to MFVI in which you have to train the means for the weights on
+    ## the first task, keeping variance zero
+    ## then variance will be initialised to 10^-6 for the next task
+    ## see "Radial Bayesian Neural Networks: Beyond Discrete Support In Large-Scale Bayesian Deep Learning"
+    
+    print(f'Training the means for weights')
+    train_dataset, test_dataset = get_permuted_mnist()
+    optimizer = torch.optim.Adam(model.parameters(), 1e-3)
 
-    # run training loop
-    losses = []
+    for epoch in range(EPOCHS_PER_TASK):
+        epoch_loss = 0
+        for batch_inputs, batch_targets in train_dataset:
+            optimizer.zero_grad()
+            # no reparameterisation trick or kl divergence
+            loss = model.loss_no_reparam(batch_inputs, batch_targets)
+            loss.backward()
+            optimizer.step()
+            epoch_loss += loss.item()
+        print(f'Epoch: {epoch}, Loss: {epoch_loss/EPOCHS_PER_TASK}')
+
+    # train on the real tasks
     for task in range(0, NUM_TASKS):
         print(f'Task: {task}')
         # generate a new permutation of the mnist data
         train_dataset, test_dataset = get_permuted_mnist()
+
+        train_set_size = len(train_dataset.dataset)
+
         # store both the train and test data loaders for this task
         tasks.append((train_dataset, test_dataset))
+
+        optimizer = torch.optim.Adam(model.parameters(), 1e-3)
+
         for epoch in range(EPOCHS_PER_TASK):
             epoch_loss = 0
             for batch_inputs, batch_targets in train_dataset:
-                include_kl = task != 0
                 optimizer.zero_grad()
-                loss = model.loss(batch_inputs, batch_targets, len(train_dataset), include_kl)
+                loss = model.loss(batch_inputs, batch_targets, train_set_size)
                 loss.backward()
                 optimizer.step()
                 epoch_loss += loss.item()
             print(f'Epoch: {epoch}, Loss: {epoch_loss/EPOCHS_PER_TASK}')
-            if loss.item() < 0.1:
-                model.update_prior()
-                break
+        average = 0
         for i in range(0, task+1):
-            print(f'Testing performance on task {i} : {test_nn(model, tasks[i][0])} ')
+            test_performance = test_nn(model, tasks[i][0])
+            print(f'Testing performance on task {i} : {test_performance} ')
+            average += test_performance
+        print(f'Mean test performance over tasks: {average/(task + 1)}')
         model.update_prior()
-
-    plt.plot(losses)
-    plt.show()
 
 def test_nn(model, test_dataset):
     with torch.no_grad():
