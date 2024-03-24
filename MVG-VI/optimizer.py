@@ -23,7 +23,7 @@ class BaseOptimizer(object):
         batches = np.append(batches, data[0].shape[0])  # add the remaining datapoints
         lb = 0
         rounding = lambda x: ['%.3f' % i for i in x]
-        for j in xrange(len(batches) - 1):
+        for j in range(len(batches) - 1):
             inp = [d[batches[j]:batches[j + 1]] for d in data]
             objectives = np.array(self._ascent(*inp))
             self._update_inf()
@@ -59,7 +59,7 @@ class BaseOptimizer(object):
         updates_eval[itinf] = itinf + 1.
         fix3 = 1. - self.beta3**(itinf + 1.)
 
-        for i in xrange(len(params)):
+        for i in range(len(params)):
             if self.polyak:
                 if 'scalar' in params_inf[i].name:
                     avg = theano.shared(np.cast[theano.config.floatX](0.), name=params_inf[i].name + '_avg')
@@ -103,8 +103,8 @@ class Adam(BaseOptimizer):
         # evaluate all the objectives and (optionally) use a moving average for the parameters
         self._update_inf = theano.function([], [], updates=updates_eval, on_unused_input='warn', mode='FAST_RUN')
         self._eval = theano.function(inputs, objectives_eval, on_unused_input='ignore', mode='FAST_RUN')
-        print 'Adam', 'alpha:', alpha, 'beta1:', beta1, 'beta2:', beta2, 'epsilon:', self.epsilon, \
-            'batch_size:', self.batch_size, 'polyak:', polyak, 'beta3:', beta3
+        print('Adam', 'alpha:', alpha, 'beta1:', beta1, 'beta2:', beta2, 'epsilon:', self.epsilon, \
+            'batch_size:', self.batch_size, 'polyak:', polyak, 'beta3:', beta3)
 
     def get_updates(self, params, grads):
         updates = OrderedDict()
@@ -115,7 +115,7 @@ class Adam(BaseOptimizer):
         fix1 = 1. - self.beta1**(it + 1.)  # To make estimates unbiased
         fix2 = 1. - self.beta2**(it + 1.)  # To make estimates unbiased
 
-        for i in xrange(len(grads)):
+        for i in range(len(grads)):
             gi = grads[i]
 
             # mean_squared_grad := E[g^2]_{t-1}

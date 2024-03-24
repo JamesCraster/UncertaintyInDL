@@ -12,7 +12,7 @@ from layers import add_bias, kldiv_gamma, a0, b0
 
 class VMGNet(object):
     def __init__(self, N, dimx, dimy, dimh=(100, 100), nonlinearity='relu', learning_rate=0.001, n_iter=100,
-                 batch_size=100, priors=(0., 0., 0.), logtxt='VMGNet.txt', optimizer='adam', polyak=True, beta3=0.999,
+                 batch_size=100, priors=(-0.0, -6.0, -6.0), logtxt='VMGNet.txt', optimizer='adam', polyak=True, beta3=0.999,
                  seed=1234, task_type='classification', sampling_pred=False, type_init='he2', n_inducing=50,
                  ind_noise_lvl=0.1, **kwargs):
         # network topology
@@ -29,6 +29,7 @@ class VMGNet(object):
         if 'n_valid' in kwargs:
             self.N_valid = kwargs.pop('n_valid')
 
+        # Ox: this is just used to set the defaults in the layers
         self.priors = priors
         self.task_type = task_type
         if self.task_type not in ['regression', 'classification']:
@@ -106,16 +107,16 @@ class VMGNet(object):
         # first estimate the regularization terms
         reg = self.layers[0].get_reg()
         regi = self.layers_inf[0].get_reg()
-        for i in xrange(len(self.layers[1:])):
+        for i in range(len(self.layers[1:])):
             regs = self.layers[i + 1].get_reg()
             regsi = self.layers_inf[i + 1].get_reg()
-            for k in xrange(len(reg)):
+            for k in range(len(reg)):
                 reg[k] += regs[k]
                 regi[k] += regsi[k]
 
         # now estimate the likelihood term
         h, hinf = [self.x], [self.x]
-        for i in xrange(len(self.dimh)):
+        for i in range(len(self.dimh)):
             dot = self.layers[i].ff(add_bias(h[-1]))
             dot_inf = self.layers_inf[i].ff(add_bias(hinf[-1]))
             h.append(dot)
@@ -149,7 +150,7 @@ class VMGNet(object):
         # input layer
         h, hs = [x], [x]
         # hidden layers
-        for i in xrange(len(self.dimh)):
+        for i in range(len(self.dimh)):
             out = self.layers_inf[i].ff(add_bias(h[-1]), sampling=False)
             outs = self.layers_inf[i].ff(add_bias(hs[-1]), sampling=True)
             h.append(out)
@@ -168,7 +169,7 @@ class VMGNet(object):
 
     def predict(self, x, samples=1, batch_size_p=100):
         y_ = np.zeros((samples, x.shape[0], self.dimy))
-        chunks = [range(i, i+batch_size_p) for i in xrange(0, x.shape[0], batch_size_p)]
+        chunks = [range(i, i+batch_size_p) for i in range(0, x.shape[0], batch_size_p)]
         chunk_ = [elem for elem in chunks[-1] if elem < x.shape[0]]  # remove indices that exceed range
         chunks[-1] = chunk_
 
@@ -184,7 +185,7 @@ class VMGNet(object):
                 return np.argmax(y_[0], axis=1)
             return y_[0]
 
-        for ksample in xrange(samples):
+        for ksample in range(samples):
             for chunk in chunks:
                 if self.task_type == 'classification':
                     pred = self.predict_sample(x[chunk, :].astype(np.float32))
@@ -200,8 +201,8 @@ class VMGNet(object):
     def _create_model(self):
         [x, y], [objectives, objectives_inference] = self._training()
         self._inference(x)
-        params = [p for layer in self.layers for p in layer.params] + list(self.extra.itervalues())
-        params_inf = [p for layerinf in self.layers_inf for p in layerinf.params] + list(self.extra_inf.itervalues())
+        params = [p for layer in self.layers for p in layer.params] + list(self.extra.values())
+        params_inf = [p for layerinf in self.layers_inf for p in layerinf.params] + list(self.extra_inf.values())
         if self.task_type == 'regression':
             a1, a1i = T.exp(self.extra['a1']), T.exp(self.extra_inf['a1'])
             b1, b1i = T.exp(self.extra['b1']), T.exp(self.extra_inf['b1'])
@@ -213,31 +214,37 @@ class VMGNet(object):
                                       alpha=self.learning_rate, batch_size=self.batch_size, polyak=self.polyak,
                                       beta3=self.beta3, lr_decay=True, epsilon=nnu.eps, max_drop=self.ind_noise_lvl)
 
+    # Ox: update the priors
+    def update_priors(self):
+        for layer in self.layers:
+            layer.update_prior()
+        for layer in self.layers_inf:
+            layer.update_prior()
+
     def fit(self, xtrain, ytrain, xvalid=None, yvalid=None, verbose=False, print_every=1, sampling_rounds=1,
             xtest=None, ytest=None, llf=None, n_samples=2, return_best=False):
         rounding = lambda x: ['%.5f' % i for i in x]
-        indices = range(self.N)
+        indices = list(range(self.N))
         nnu.prng.shuffle(indices)
         objective, objective_v = [], []
         train_errs, valid_errs, test_errs = [], [], []
 
         if self.task_type == 'regression':
             self.revy = lambda x: (x * np.std(ytrain, axis=0)) + np.mean(ytrain, axis=0)
-        self._create_parameters()
-        self._create_model()
 
         if xvalid is not None:
             # model selection according to a validation set
             eopt = np.inf
             best_layers = [copy(layer) for layer in self.layers_inf]
             best_extra = OrderedDict()
-            for key, value in self.extra_inf.iteritems():
+            for key, value in self.extra_inf.items():
                 if not value.get_value().shape:
                     best_extra[key] = theano.shared(value.get_value(borrow=False)[()], name=value.name + '_inf', borrow=False)
                     continue
                 best_extra[key] = theano.shared(value.get_value(borrow=False), name=value.name + '_inf', borrow=False)
 
-        for epoch in xrange(self.n_iter):
+        
+        for epoch in range(self.n_iter):
             t = time.time()
             if self.task_type == 'classification':
                 yyy = ytrain[indices].astype(np.int32)
@@ -268,12 +275,14 @@ class VMGNet(object):
                     # store the parameters
                     for ii, layer in enumerate(self.layers_inf):
                         best_layers[ii].set_params(layer.params)
-                    for key, value in self.extra_inf.iteritems():
+                    for key, value in self.extra_inf.items():
                         best_extra[key].set_value(value.get_value(borrow=False), borrow=False)
             if xtest is not None:
                 ypredt = self.predict(xtest, samples=sampling_rounds)
                 test_err = 100 * (1. - (ypredt == ytest).sum() / (1. * ytest.shape[0]))
                 test_errs.append(test_err)
+
+            print(self.layers_inf[0].get_priors())
 
             if (epoch + 1) % print_every == 0:
                 string = 'Epoch ' + str(epoch + 1) + '/' + str(self.n_iter) + ', train: ' + str(rounding(train_s))
@@ -296,7 +305,7 @@ class VMGNet(object):
         if xvalid is not None and return_best:
             for ii, layer in enumerate(best_layers):
                 self.layers_inf[ii].set_params(layer.params)
-            for key, value in best_extra.iteritems():
+            for key, value in best_extra.items():
                 self.extra_inf[key].set_value(value.get_value(borrow=False), borrow=False)
         return [objective, objective_v], [train_errs, valid_errs, test_errs]
 

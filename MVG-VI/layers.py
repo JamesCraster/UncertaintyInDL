@@ -39,6 +39,9 @@ class Layer(object):
         # self.amount_reg = amount_reg
         self.nonlin = nonlin
         self.nonlinearity = nnu.nonlinearities[nonlin]
+
+        # Ox: these must become vectors in their own right, 
+        # same as the row and column sigma we are learning 
         self.priors = priors
 
     def ff(self, x, sampling=True):

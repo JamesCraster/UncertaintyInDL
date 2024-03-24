@@ -82,16 +82,16 @@ nonlinearities = {'tanh': T.tanh, 'sigmoid': T.nnet.sigmoid, 'softmax': T.nnet.s
 
 
 def log_f(string, f='log.txt'):
-    with open('logs/' + f, 'ab') as handle:
-        handle.write(string + '\n')
-        print string
+    #with open('logs/' + f, 'ab') as handle:
+    #handle.write(string + '\n')
+    print(string)
 
 
 class Polygamma(theano.Op):
     """
     This creates an Op that produces the polygamma function
     """
-    __props__ = ("n")
+    __props__ = ("n",)
 
     def __init__(self, n):
         self.n = n

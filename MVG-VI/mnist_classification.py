@@ -1,24 +1,39 @@
 import gzip
 import numpy as np
-import cPickle as pkl
+import pickle as pkl
 import nn_utils as nnu
 import theano
 from VMGNet import VMGNet
 floatX = theano.config.floatX
+import matplotlib.pyplot as plt
+import pickle 
 
-f = gzip.open('data/mnist.pkl.gz', 'rb')
-(xtrain, ytrain), (xvalid, yvalid), (xtest, ytest) = pkl.load(f)
-f.close()
+tasks = []
+with open('permuted_mnist.pkl', 'rb') as file:
+    tasks = pickle.load(file)
 
-n_y = np.unique(ytrain).shape[0]
-idx = nnu.prng.permutation(range(xtrain.shape[0]))
-xtrain, ytrain = xtrain[idx], ytrain[idx]
-xtrain, xtest = np.cast[floatX](xtrain), np.cast[floatX](xtest)
 
-nn = VMGNet(xtrain.shape[0], xtrain.shape[1], n_y, batch_size=100, dimh=(150, 150, 150), n_iter=100,
+nn = VMGNet(tasks[0][0].shape[0], tasks[0][0].shape[1], 10, batch_size=256, dimh=(100, 100), n_iter=2,
             logtxt='vmgnet.txt', type_init='he2', n_inducing=50, ind_noise_lvl=0.01, task_type='classification')
 
-output_nn = nn.fit(xtrain, ytrain, xvalid=xvalid, yvalid=yvalid, xtest=xtest, ytest=ytest, sampling_rounds=1)
+# test our network for catastrophic forgetting
 
-preds = nn.predict(xtest, samples=1)
-print 'Mean Test error:', 100. * ((preds != ytest).sum() / (1. * ytest.shape[0]))
+nn._create_parameters()
+nn._create_model()
+
+
+for i in range(1,10):
+    print(f"TASK {i}")
+    output_nn = nn.fit(tasks[i][0], tasks[i][1], xvalid=None, yvalid=None, xtest=tasks[i][2], ytest=tasks[i][3], sampling_rounds=2, verbose=True)
+    nn.update_priors()
+    performances = []
+    for j in range(0,i+1):
+        preds = nn.predict(tasks[j][2], samples=5)
+        performance = 100. * ((preds == tasks[j][3]).sum() / (1. * tasks[j][3].shape[0]))
+        performances.append(performance)
+        print(f"Test performance on task {j}: ", performance)
+    print(f"Average test performance: ", sum(performances)/len(performances))
+
+print(nn.layers[0].get_priors()[0].eval())
+print(nn.layers[0].get_priors()[1].eval())
+print(nn.layers[0].get_priors()[2].eval())
