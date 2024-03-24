@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import pickle 
 
 tasks = []
-with open('../GenerateData/permuted_mnist/permuted_mnist_0.pkl', 'rb') as file:
+with open('../GenerateData/permuted_mnist/permuted_mnist_1.pkl', 'rb') as file:
     tasks = pickle.load(file)
 
 
@@ -22,7 +22,7 @@ nn._create_parameters()
 nn._create_model()
 
 
-for i in range(1,10):
+for i in range(0,9):
     print(f"TASK {i}")
     output_nn = nn.fit(tasks[i][0], tasks[i][1], xvalid=None, yvalid=None, xtest=tasks[i][2], ytest=tasks[i][3], sampling_rounds=2, verbose=True)
     nn.update_priors()
