@@ -1,12 +1,41 @@
-import torchvision
+"""Load in permuted mnist from a pickle to ensure consistency with MVG-VI"""
+import pickle
 import torch
 import torch.nn as nn
-from permuted_mnist import get_permuted_mnist, IMAGE_SIZE
+from torch.utils.data import TensorDataset, DataLoader
+import torchvision
 from models.vcl import VCL
 from models.basic_nn import BasicNN
 
-NUM_TASKS = 10
-EPOCHS_PER_TASK = 30
+IMAGE_SIZE = 784
+
+loaded_data = None
+with open('../GenerateData/split_mnist.pkl', 'rb') as f:
+    loaded_data = pickle.load(f)
+
+
+xtrain = []
+ytrain = []
+xtest = []
+ytest = []
+initial_tasks = []
+
+for data in enumerate(loaded_data):
+    xtrain = torch.tensor(data[1][0])
+    ytrain = torch.tensor(data[1][1])
+    xtest = torch.tensor(data[1][2])
+    ytest = torch.tensor(data[1][3])
+
+    train_loader = DataLoader(TensorDataset(xtrain, ytrain), batch_size=256, shuffle=True)
+    test_loader = DataLoader(TensorDataset(xtest, ytest), batch_size=256, shuffle=True)
+    initial_tasks.append((train_loader, test_loader))
+
+def get_split_mnist():
+    for element in initial_tasks:
+        yield element
+
+NUM_TASKS = 5
+EPOCHS_PER_TASK = 10
 
 def train_nn(model, tasks):
     ## a hack specific to MFVI in which you have to train the means for the weights on
@@ -32,7 +61,7 @@ def train_nn(model, tasks):
     #     print(f'Epoch: {epoch}, Loss: {epoch_loss/EPOCHS_PER_TASK}')
 
     # train on the real tasks
-    generator = get_permuted_mnist()
+    generator = get_split_mnist()
 
     for task in range(0, NUM_TASKS):
         print(f'Task: {task}')
@@ -63,11 +92,13 @@ def train_nn(model, tasks):
             print(f'Testing performance on task {i} : {test_performance} ')
             average += test_performance
         print(f'Mean test performance over tasks: {average/(task + 1)}')
+        
         model.update_prior()
 
         # Improving and Understanding Variational Continual Learning 
         # recommends to reset the posterior
-        model.reset_posterior()
+        
+        #model.reset_posterior()
 
 def test_nn(model, test_dataset):
     with torch.no_grad():

@@ -22,14 +22,14 @@ for task in task_classes:
     train_targets = []
     for data, target in mnist_train:
         if (target == task[0]) or (target == task[1]):
-            train_data.append((data/255.0).numpy())
+            train_data.append((data / 255.0).numpy())
             train_targets.append(target)
     
     test_data = []
     test_targets = []
     for data, target in mnist_test:
         if (target == task[0]) or (target == task[1]):
-            test_data.append((data/255.0).numpy())
+            test_data.append((data / 255.0).numpy())
             test_targets.append(target)
 
     tasks.append((np.array(train_data), np.array(train_targets), 
