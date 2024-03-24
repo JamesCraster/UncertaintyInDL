@@ -1,27 +1,28 @@
-"""Generate the standard permuted mnist dataset from MNIST"""
-import torchvision
-import torchvision.transforms as T
+"""Load in permuted mnist from a pickle to ensure consistency with MVG-VI"""
+import pickle
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import TensorDataset, DataLoader
 
 IMAGE_SIZE = 784
-transform = T.Compose([T.PILToTensor(), T.Lambda(lambda t: torch.flatten(t)), T.Lambda(lambda t: t.float())])
-mnist_train = torchvision.datasets.MNIST('.', download=True, transform=transform)
-mnist_test = torchvision.datasets.MNIST('.', train=False, download=True, transform=transform)
 
-def permute(dataloader, permutation):
-    output = []
-    for data in dataloader:
-        image = torch.index_select(data[0], dim=0, index=permutation)
-         # now scale the data (max brightness is 255)
-        image = image / 255.0
-        output.append((image, data[1]))
-    return output
+with open('../GenerateData/permuted_mnist/permuted_mnist_0.pkl', 'rb') as f:
+    loaded_data = pickle.load(f)
+
+xtrain = []
+ytrain = []
+xtest = []
+ytest = []
+tasks = []
+
+for data in enumerate(loaded_data):
+    xtrain = torch.tensor(data[1][0])
+    ytrain = torch.tensor(data[1][1])
+    xtest = torch.tensor(data[1][2])
+    ytest = torch.tensor(data[1][3])
+    train_loader = DataLoader(TensorDataset(xtrain, ytrain), batch_size=256, shuffle=True)
+    test_loader = DataLoader(TensorDataset(xtest, ytest), batch_size=256, shuffle=True)
+    tasks.append((train_loader, test_loader))
 
 def get_permuted_mnist():
-    permutation = torch.randperm(IMAGE_SIZE)
-    train_data = DataLoader(permute(mnist_train, permutation), batch_size=256, shuffle=True)
-    test_data = DataLoader(permute(mnist_test, permutation), batch_size=256, shuffle=True)
-    return train_data, test_data
-
-
+    for element in tasks:
+        yield element

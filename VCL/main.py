@@ -32,10 +32,14 @@ def train_nn(model, tasks):
     #     print(f'Epoch: {epoch}, Loss: {epoch_loss/EPOCHS_PER_TASK}')
 
     # train on the real tasks
+    generator = get_permuted_mnist()
+
     for task in range(0, NUM_TASKS):
         print(f'Task: {task}')
+
+        
         # generate a new permutation of the mnist data
-        train_dataset, test_dataset = get_permuted_mnist()
+        train_dataset, test_dataset = next(generator)
 
         train_set_size = len(train_dataset.dataset)
 
