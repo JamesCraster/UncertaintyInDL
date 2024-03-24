@@ -6,28 +6,30 @@ from models.vcl import VCL
 from models.basic_nn import BasicNN
 
 NUM_TASKS = 10
-EPOCHS_PER_TASK = 20
+EPOCHS_PER_TASK = 30
 
 def train_nn(model, tasks):
     ## a hack specific to MFVI in which you have to train the means for the weights on
     ## the first task, keeping variance zero
     ## then variance will be initialised to 10^-6 for the next task
     ## see "Radial Bayesian Neural Networks: Beyond Discrete Support In Large-Scale Bayesian Deep Learning"
-    
-    print(f'Training the means for weights')
-    train_dataset, test_dataset = get_permuted_mnist()
-    optimizer = torch.optim.Adam(model.parameters(), 1e-3)
+    #print(f'Training the means for weights')
+    #train_dataset, test_dataset = get_permuted_mnist()
+    #optimizer = torch.optim.Adam(model.parameters(), 1e-3)
 
-    for epoch in range(EPOCHS_PER_TASK):
-        epoch_loss = 0
-        for batch_inputs, batch_targets in train_dataset:
-            optimizer.zero_grad()
-            # no reparameterisation trick or kl divergence
-            loss = model.loss_no_reparam(batch_inputs, batch_targets)
-            loss.backward()
-            optimizer.step()
-            epoch_loss += loss.item()
-        print(f'Epoch: {epoch}, Loss: {epoch_loss/EPOCHS_PER_TASK}')
+    ## Performance improves when this mean initialisation is skipped. Therefore this is skipped.
+    ## This is actually expected according to : Improving and Understanding Variational Continual Learning
+
+    # for epoch in range(EPOCHS_PER_TASK):
+    #     epoch_loss = 0
+    #     for batch_inputs, batch_targets in train_dataset:
+    #         optimizer.zero_grad()
+    #         # no reparameterisation trick or kl divergence
+    #         loss = model.loss_no_reparam(batch_inputs, batch_targets)
+    #         loss.backward()
+    #         optimizer.step()
+    #         epoch_loss += loss.item()
+    #     print(f'Epoch: {epoch}, Loss: {epoch_loss/EPOCHS_PER_TASK}')
 
     # train on the real tasks
     for task in range(0, NUM_TASKS):
@@ -59,11 +61,15 @@ def train_nn(model, tasks):
         print(f'Mean test performance over tasks: {average/(task + 1)}')
         model.update_prior()
 
+        # Improving and Understanding Variational Continual Learning 
+        # recommends to reset the posterior
+        model.reset_posterior()
+
 def test_nn(model, test_dataset):
     with torch.no_grad():
         accuracies = []
         for batch_inputs, batch_targets in test_dataset:
-            output = model(batch_inputs)
+            output = model.predict(batch_inputs)
             _, predicted_labels = torch.max(output, 1)
             accuracy = ((predicted_labels == batch_targets).sum()/predicted_labels.shape[0]).item()
             accuracies.append(accuracy)

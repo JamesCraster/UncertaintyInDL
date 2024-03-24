@@ -7,9 +7,11 @@ class MFVILayer(nn.Module):
     def __init__(self, input_size, output_size, bias=True):
         super(MFVILayer, self).__init__()
 
+        self.output_size = output_size
+        self.input_size = input_size
+
         # in the paper, the prior used for weights and biases is a normal with
         # zero mean and zero variance
-
         # to constrain variance to be positive, store v instead where v = log(variance)
 
         self.prior_W_m = torch.zeros(output_size, input_size, requires_grad=False) 
@@ -21,13 +23,13 @@ class MFVILayer(nn.Module):
         # the posterior weight and bias will be optimized to match the point estimate 
         # for the first task. Therefore they are given a standard random initialisation
         self.posterior_W_m = nn.Parameter(torch.Tensor(output_size, input_size))
-        self.posterior_b_m = nn.Parameter(torch.rand(output_size))
-        nn.init.kaiming_uniform_(self.posterior_W_m, a=math.sqrt(5))
-        nn.init.normal_(self.posterior_b_m)
+        self.posterior_b_m = nn.Parameter(torch.Tensor(output_size))
+        nn.init.normal_(self.posterior_W_m, mean=0.0, std=1e-3)
+        nn.init.normal_(self.posterior_b_m, mean=0.0, std=1e-3)
 
         # for the first task, give the weights low variance
-        self.posterior_W_v = nn.Parameter(torch.full((output_size, input_size), math.log(1e-3)))
-        self.posterior_b_v = nn.Parameter(torch.full((output_size,), math.log(1e-3)))
+        self.posterior_W_v = nn.Parameter(torch.full((output_size, input_size), math.log(1e-6)))
+        self.posterior_b_v = nn.Parameter(torch.full((output_size,), math.log(1e-6)))
                
     def forward(self, x):
         # perform the reparameterisation trick
@@ -71,12 +73,24 @@ class MFVILayer(nn.Module):
         self.prior_W_v = self.posterior_W_v.detach().clone()
         self.prior_b_m = self.posterior_b_m.detach().clone()
         self.prior_b_v = self.posterior_b_v.detach().clone()
+    
+    def reset_posterior(self):
+        self.posterior_W_m = nn.Parameter(torch.Tensor(self.output_size, self.input_size))
+        self.posterior_b_m = nn.Parameter(torch.Tensor(self.output_size))
+        nn.init.normal_(self.posterior_W_m, mean=0.0, std=1e-3)
+        nn.init.normal_(self.posterior_b_m, mean=0.0, std=1e-3)
+
+        # for the first task, give the weights low variance
+        self.posterior_W_v = nn.Parameter(torch.full((self.output_size, self.input_size), math.log(1e-6)))
+        self.posterior_b_v = nn.Parameter(torch.full((self.output_size,), math.log(1e-6)))
+
 
 class VCL(nn.Module):
     def __init__(self, input_size, hidden_size, output_size):
         super(VCL, self).__init__()
 
-        self.training_samples = 10
+        self.training_samples = 5
+        self.testing_samples = 10
         
         self.variational_layers = nn.Sequential(
             MFVILayer(input_size, hidden_size),
@@ -117,8 +131,14 @@ class VCL(nn.Module):
    
     def loss(self, batch_inputs, batch_targets, training_set_size):
         loss_fn = torch.nn.CrossEntropyLoss()
+        
         cross_entropy_loss = loss_fn(self(batch_inputs), batch_targets)
-        elbo = cross_entropy_loss
+        for i in range(0, self.training_samples - 1):
+            cross_entropy_loss += loss_fn(self(batch_inputs), batch_targets)
+        
+        # average the likelihood over many training samples
+        # this is Monte Carlo integration
+        elbo = cross_entropy_loss / self.training_samples
 
         for layer in self.variational_layers:
             # without the kl divergence term, the model behaviour is 
@@ -134,16 +154,21 @@ class VCL(nn.Module):
 
         return elbo
 
-    def predict(self, input, samples=100):
+    def predict(self, input):
         x = self(input)
-        for i in range(0, samples-1):
-            # for now, just use model forward
+        for i in range(0, self.testing_samples-1):
+            # use forward because need to take into account variance of each node
             x += self(input)
-        return x/samples
+        
+        return x/self.testing_samples
 
     def update_prior(self):
         for layer in self.variational_layers:
             layer.update_prior()
+
+    def reset_posterior(self):
+        for layer in self.variational_layers:
+            layer.reset_posterior()
 
     def update_coreset():
         # TODO use the coreset properly

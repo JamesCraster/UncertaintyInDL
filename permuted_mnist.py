@@ -25,5 +25,3 @@ def get_permuted_mnist():
     return train_data, test_data
 
 
-
-
