@@ -42,15 +42,11 @@ for file_num in range(0, 3):
         tasks.append(permuted_data)
 
     with open(f'permuted_mnist/permuted_mnist_{file_num}.pkl', 'wb') as file:
-        # output the permutations to JSON
         # pickle the numpy version
-        # pickle to torch version
         pickle.dump(tasks, file)
     
     with open(f'permuted_mnist/permuted_mnist_{file_num}.json', 'w') as file:
         # output the permutations to JSON
-        # pickle the numpy version
-        # pickle to torch version
         json.dump(permutations, file)
 
 

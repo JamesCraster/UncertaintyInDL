@@ -78,7 +78,7 @@ class MatrixGaussDiagLayerFF(Layer):
         return reg
 
     def update_prior(self):
-        # Ox: need to make these no longer learnable
+        # Ox: these are no longer learnable
         self.priors = (self.params[0].copy(), self.params[1].copy(), 
         self.params[2].copy())
     

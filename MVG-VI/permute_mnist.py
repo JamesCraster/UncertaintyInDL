@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import pickle 
 
 tasks = []
-with open('permuted_mnist.pkl', 'rb') as file:
+with open('../GenerateData/permuted_mnist/permuted_mnist_0.pkl', 'rb') as file:
     tasks = pickle.load(file)
 
 
