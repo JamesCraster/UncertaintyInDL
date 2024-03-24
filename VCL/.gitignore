@@ -2,3 +2,4 @@ env
 MNIST
 *.pyc
 **/__pycache
+.DS_Store
