@@ -1,10 +1,12 @@
 Implementation of MVG-VI, updated by me, taken originally from below source
 
-Theano is no longer being maintained, there exists a fork called Pytensor. Switching to Pytensor is left as future work. To run this, you will need Python no older than 3.9 and numpy no older than 1.21.5, because Theano uses some deprecated functionality of both. Running Theano in 2024 is not trivial. I used Theano 1.0.5 and scipy 1.9.1 if that helps.
+Theano is no longer being maintained, there exists a fork called Pytensor. Switching to Pytensor is left as future work. To run this, you will need Python no older than 3.9 and numpy no older than 1.21.5, because Theano uses some deprecated functionality of both. I used Theano 1.0.5 and scipy 1.9.1.
 
 I updated the code to use PermutedMNIST - using the same code from the VCL repo to generate it. 
 
 --- Original README ----
+
+https://github.com/AMLab-Amsterdam/SEVDL_MGP
 
 Example implementation of the Bayesian neural network in:
 
