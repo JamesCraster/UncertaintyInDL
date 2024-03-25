@@ -20,11 +20,11 @@ xtest = []
 ytest = []
 initial_tasks = []
 
-for data in enumerate(loaded_data):
-    xtrain = torch.tensor(data[1][0])
-    ytrain = torch.tensor(data[1][1])
-    xtest = torch.tensor(data[1][2])
-    ytest = torch.tensor(data[1][3])
+for data in loaded_data:
+    xtrain = torch.tensor(data[0])
+    ytrain = torch.tensor(data[1])
+    xtest = torch.tensor(data[2])
+    ytest = torch.tensor(data[3])
 
     train_loader = DataLoader(TensorDataset(xtrain, ytrain), batch_size=256, shuffle=True)
     test_loader = DataLoader(TensorDataset(xtest, ytest), batch_size=256, shuffle=True)
@@ -66,7 +66,6 @@ def train_nn(model, tasks):
     for task in range(0, NUM_TASKS):
         print(f'Task: {task}')
 
-        
         # generate a new permutation of the mnist data
         train_dataset, test_dataset = next(generator)
 
@@ -98,7 +97,7 @@ def train_nn(model, tasks):
         # Improving and Understanding Variational Continual Learning 
         # recommends to reset the posterior
         
-        #model.reset_posterior()
+        model.reset_posterior()
 
 def test_nn(model, test_dataset):
     with torch.no_grad():
