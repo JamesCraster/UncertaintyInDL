@@ -254,6 +254,7 @@ class VMGNet(object):
             out = self.optimizer.train(inputs, verbose=verbose).tolist()
             loss, reg = out[0], out[1:]
             objective.append(loss + sum(reg))
+            print(reg)
             yp_train = self.predict(xtrain, samples=sampling_rounds)
             if self.task_type == 'classification':
                 train_acc = (yp_train == ytrain).sum() / (1. * ytrain.shape[0])

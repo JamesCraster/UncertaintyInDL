@@ -2,6 +2,11 @@
 import pickle
 import torch
 from torch.utils.data import TensorDataset, DataLoader
+import torchvision
+import torch
+import torch.nn as nn
+from models.mvg import MVG
+from models.basic_nn import BasicNN
 
 IMAGE_SIZE = 784
 
@@ -28,14 +33,10 @@ def get_permuted_mnist():
     for element in initial_tasks:
         yield element
 
-import torchvision
-import torch
-import torch.nn as nn
-from models.vcl import VCL
-from models.basic_nn import BasicNN
+
 
 NUM_TASKS = 10
-EPOCHS_PER_TASK = 30
+EPOCHS_PER_TASK = 5
 
 def train_nn(model, tasks):
     ## a hack specific to MFVI in which you have to train the means for the weights on
@@ -85,7 +86,10 @@ def train_nn(model, tasks):
                 loss.backward()
                 optimizer.step()
                 epoch_loss += loss.item()
-            print(f'Epoch: {epoch}, Loss: {epoch_loss/EPOCHS_PER_TASK}')
+            print(f'Epoch: {epoch}, Loss: {epoch_loss/len(train_dataset)}')
+            test_performance = test_nn(model, tasks[task][1])
+            print(f'Testing performance on task {task} : {test_performance} ')
+        
         average = 0
         for i in range(0, task+1):
             test_performance = test_nn(model, tasks[i][0])
@@ -96,7 +100,7 @@ def train_nn(model, tasks):
 
         # Improving and Understanding Variational Continual Learning 
         # recommends to reset the posterior
-        #model.reset_posterior()
+        model.reset_posterior()
 
 def test_nn(model, test_dataset):
     with torch.no_grad():
@@ -109,5 +113,5 @@ def test_nn(model, test_dataset):
         return sum(accuracies)/len(accuracies)
 
 tasks = []
-model = VCL(IMAGE_SIZE, 100, 10)
+model = MVG(IMAGE_SIZE, 100, 10)
 train_nn(model, tasks)

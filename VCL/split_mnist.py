@@ -5,6 +5,7 @@ import torch.nn as nn
 from torch.utils.data import TensorDataset, DataLoader
 import torchvision
 from models.vcl import VCL
+from models.mvg import MVG
 from models.basic_nn import BasicNN
 
 IMAGE_SIZE = 784
@@ -84,7 +85,7 @@ def train_nn(model, tasks):
                 loss.backward()
                 optimizer.step()
                 epoch_loss += loss.item()
-            print(f'Epoch: {epoch}, Loss: {epoch_loss/EPOCHS_PER_TASK}')
+            print(f'Epoch: {epoch}, Loss: {epoch_loss/len(train_dataset)}')
         average = 0
         for i in range(0, task+1):
             test_performance = test_nn(model, tasks[i][0])
@@ -110,5 +111,5 @@ def test_nn(model, test_dataset):
         return sum(accuracies)/len(accuracies)
 
 tasks = []
-model = VCL(IMAGE_SIZE, 100, 10)
+model = MVG(IMAGE_SIZE, 100, 10)
 train_nn(model, tasks)

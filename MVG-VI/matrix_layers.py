@@ -91,8 +91,10 @@ class MatrixGaussDiagLayerFF(Layer):
     # Ox: it says std_r and std_c here - but the exp(std_r) and exp(std_c) of the layer
     # are passed in
     def kldiv_m(self, mu, std_r, std_c):
+        
         pmu, pstdr, pstdc = self.get_priors()
         var_r, var_c = T.sqr(std_r), T.sqr(std_c)
+        print(var_r.eval().shape)
         # first kl term
         fa = T.sum((1./(pstdc**2)) * var_c)*T.sum((1./(pstdr**2))*var_r)
         # second kl term

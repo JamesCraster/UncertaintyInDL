@@ -24,8 +24,11 @@ nn._create_model()
 
 for i in range(0,9):
     print(f"TASK {i}")
+    
+    
     output_nn = nn.fit(tasks[i][0], tasks[i][1], xvalid=None, yvalid=None, xtest=tasks[i][2], ytest=tasks[i][3], sampling_rounds=2, verbose=True)
-    nn.update_priors()
+    #print(nn.layers[0].get_priors()[0].eval())
+    #nn.update_priors()
     performances = []
     for j in range(0,i+1):
         preds = nn.predict(tasks[j][2], samples=5)
@@ -34,6 +37,4 @@ for i in range(0,9):
         print(f"Test performance on task {j}: ", performance)
     print(f"Average test performance: ", sum(performances)/len(performances))
 
-print(nn.layers[0].get_priors()[0].eval())
-print(nn.layers[0].get_priors()[1].eval())
-print(nn.layers[0].get_priors()[2].eval())
+
