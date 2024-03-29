@@ -80,7 +80,7 @@ class MFVILayer(nn.Module):
         nn.init.normal_(self.posterior_W_m, mean=0.0, std=1e-3)
         nn.init.normal_(self.posterior_b_m, mean=0.0, std=1e-3)
 
-        # for the first task, give the weights low variance
+        # give the weights low variance
         self.posterior_W_v = nn.Parameter(torch.full((self.output_size, self.input_size), math.log(1e-6)))
         self.posterior_b_v = nn.Parameter(torch.full((self.output_size,), math.log(1e-6)))
 

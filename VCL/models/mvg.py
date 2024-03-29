@@ -2,7 +2,6 @@
 import torch
 import torch.nn as nn
 import math
-from torch.distributions.multivariate_normal import MultivariateNormal
 
 def MVG_KL(M_post, M_prior, U_post, U_prior, V_post, V_prior, input_size, output_size):
     epsilon = 1e-10
@@ -24,58 +23,36 @@ class MVGLayer(nn.Module):
         super(MVGLayer, self).__init__()
 
         self.output_size = output_size
-        self.input_size = input_size
+        # add an extra column for the bias term
+        self.input_size = input_size + 1
 
         # in the paper, the prior used for weights and biases is a normal with
         # zero mean and zero variance
         # to constrain variance to be positive, store v instead where v = log(variance)
 
-        self.prior_W_m = torch.zeros(input_size, output_size, requires_grad=False) 
-        self.prior_W_u = torch.zeros(input_size, requires_grad=False)
-        self.prior_W_v = torch.zeros(output_size, requires_grad=False)
-
-        self.prior_b_m = torch.zeros(output_size, requires_grad=False)
-        self.prior_b_u = torch.zeros(output_size, requires_grad=False)
-        self.prior_b_v = torch.zeros(input_size, requires_grad=False)
+        self.prior_W_m = torch.zeros(self.input_size, self.output_size, requires_grad=False) 
+        self.prior_W_u = torch.zeros(self.input_size, requires_grad=False)
+        self.prior_W_v = torch.zeros(self.output_size, requires_grad=False)
         
-        # the posterior weight and bias will be optimized to match the point estimate 
-        # for the first task. Therefore they are given a standard random initialisation
-        self.posterior_W_m = nn.Parameter(torch.Tensor(input_size, output_size))
-        self.posterior_b_m = nn.Parameter(torch.Tensor(output_size))
-        nn.init.normal_(self.posterior_W_m, mean=0.0, std=1e-3)
-        nn.init.normal_(self.posterior_b_m, mean=0.0, std=1e-3)
-
-        # for the first task, give the weights low variance
-        #print('input_size', input_size)
-        self.posterior_W_u = nn.Parameter(torch.full((input_size,), math.log(1e-2)))
-        self.posterior_W_v = nn.Parameter(torch.full((output_size,), math.log(1e-2)))
-
-        self.posterior_b_u = nn.Parameter(torch.full((output_size,), math.log(1e-2)))
-        self.posterior_b_v = nn.Parameter(torch.full((input_size,), math.log(1e-2)))
+        self.reset_posterior()
                
     def forward(self, x):
+        # add input column of ones to provide for a bias term
+        x = torch.cat((x, torch.ones(x.shape[0], 1)), dim=1)
+        
         # perform the reparameterisation trick
         weight_epsilons = torch.normal(mean=0, std=1, size=self.posterior_W_m.shape)
         
-        #print(self.posterior_W_m.shape)
-        #print(weight_epsilons.shape)
-        #print(self.posterior_W_u.shape)
-        #print((torch.exp(0.5 * self.posterior_W_u) * weight_epsilons * torch.exp(0.5 * self.posterior_W_v.T)).shape)
         output = x.matmul(self.posterior_W_m + torch.diag(torch.exp(0.5 * self.posterior_W_u)) \
              @ weight_epsilons @ torch.diag(torch.exp(0.5 * self.posterior_W_v)))
-        
 
-        bias_epsilons = torch.normal(mean=0, std=1, size=self.posterior_b_m.shape)
-
-        
-        #output += self.posterior_b_m + ((torch.exp(self.posterior_b_u) * bias_epsilons * torch.exp(self.posterior_b_v.T))).t()
         return output
 
     def forward_no_reparam(self,x):
         # do standard forward pass without any variance
 
         output = x.matmul((self.posterior_W_m).t())
-        output += self.posterior_b_m
+
         return output
 
     def kl_divergence(self):
@@ -98,23 +75,15 @@ class MVGLayer(nn.Module):
         self.prior_W_m = self.posterior_W_m.detach().clone()
         self.prior_W_v = self.posterior_W_v.detach().clone()
         self.prior_W_u = self.posterior_W_u.detach().clone()
-        self.prior_b_m = self.posterior_b_m.detach().clone()
-        self.prior_b_v = self.posterior_b_v.detach().clone()
-        self.prior_b_u = self.posterior_b_v.detach().clone()
     
     def reset_posterior(self):
         print("reset posterior!")
         self.posterior_W_m = nn.Parameter(torch.Tensor(self.input_size, self.output_size))
-        self.posterior_b_m = nn.Parameter(torch.Tensor(self.output_size))
         nn.init.normal_(self.posterior_W_m, mean=0.0, std=1e-3)
-        nn.init.normal_(self.posterior_b_m, mean=0.0, std=1e-3)
 
-        # for the first task, give the weights low variance
+        # give the weights low variance
         self.posterior_W_u = nn.Parameter(torch.full((self.input_size,), math.log(1e-2)))
         self.posterior_W_v = nn.Parameter(torch.full((self.output_size,), math.log(1e-2)))
-
-        self.posterior_b_u = nn.Parameter(torch.full((self.output_size,), math.log(1e-2)))
-        self.posterior_b_v = nn.Parameter(torch.full((self.input_size,), math.log(1e-2)))
 
 
 class MVG(nn.Module):
