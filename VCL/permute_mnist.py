@@ -36,7 +36,7 @@ def get_permuted_mnist():
 
 
 NUM_TASKS = 10
-EPOCHS_PER_TASK = 5
+EPOCHS_PER_TASK = 10
 
 def train_nn(model, tasks):
     ## a hack specific to MFVI in which you have to train the means for the weights on
@@ -84,6 +84,7 @@ def train_nn(model, tasks):
                 optimizer.zero_grad()
                 loss = model.loss(batch_inputs, batch_targets, train_set_size)
                 loss.backward()
+                #print(loss.item())
                 optimizer.step()
                 epoch_loss += loss.item()
             print(f'Epoch: {epoch}, Loss: {epoch_loss/len(train_dataset)}')

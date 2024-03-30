@@ -1,17 +1,31 @@
-"""Implement Matrix Variate Gaussian VI with a diagonal U and V"""
+"""Implement Matrix Variate Gaussian VI with a full U and V"""
 import torch
 import torch.nn as nn
 import math
+from .sqrtm import sqrtm
 
-def MVG_KL(M_post, M_prior, U_post, U_prior, V_post, V_prior, input_size, output_size):
-    epsilon = 1e-10
+def cholesky_compose(U_half, mask):
+    return (U_half * mask) @ (U_half * mask).T
 
-    first_term = torch.diag((U_post/U_prior)).sum() * torch.diag((V_post/V_prior)).sum()
+def cholesky_log_det(U_half):
+    return (torch.log(torch.pow(torch.diag(U_half),2))).sum()
+
+def MVG_KL(M_post, M_prior, U_post_half, U_prior_half, U_mask, V_post_half, V_prior_half, V_mask, input_size, output_size):
+    U_post = cholesky_compose(U_post_half, U_mask)
+    U_prior = cholesky_compose(U_prior_half, U_mask)
+    V_post = cholesky_compose(V_post_half, V_mask)
+    V_prior = cholesky_compose(V_prior_half, V_mask)
     
-    middle_term = (M_prior - M_post).T @ (torch.diag(1/U_prior)) @ ((M_prior - M_post) @ torch.diag(1/V_prior))
+    U_prior_inv = torch.linalg.inv(U_prior)
+    V_prior_inv = torch.linalg.inv(V_prior)
 
+    first_term = torch.trace(U_prior_inv @ U_post) * torch.trace(V_prior_inv @ V_post)
+    
+    middle_term = ((M_prior - M_post).T @ U_prior_inv) @ ((M_prior - M_post) @ V_prior_inv)
+    
     last_term = - output_size * input_size \
-        + output_size * (torch.log(U_prior).sum() - torch.log(U_post).sum()) + input_size * (torch.log(V_prior).sum() - torch.log(V_post).sum())
+        + output_size * (cholesky_log_det(U_prior_half * U_mask) - cholesky_log_det(U_post_half * U_mask)) \
+            + input_size * (cholesky_log_det(V_prior_half * V_mask) - cholesky_log_det(V_post_half * V_mask))
 
     output = first_term + torch.trace(middle_term) + last_term
     
@@ -29,13 +43,13 @@ class MVGLayer(nn.Module):
         # in the paper, the prior used for weights and biases is a normal with
         # zero mean and zero variance
         # to constrain variance to be positive, store v instead where v = log(variance)
-        # (an essential property of covariance matrices is that elements along the diagonal
-        # must be positive)
 
         self.prior_W_m = torch.zeros(self.input_size, self.output_size, requires_grad=False) 
-        self.prior_W_u = torch.zeros(self.input_size, requires_grad=False)
-        self.prior_W_v = torch.zeros(self.output_size, requires_grad=False)
-        
+        self.prior_W_u = torch.full((self.input_size,self.input_size), 0)
+        self.prior_W_u.fill_diagonal_(1)
+        self.prior_W_v = torch.full((self.output_size,self.output_size), 0)
+        self.prior_W_v.fill_diagonal_(1)
+
         self.reset_posterior()
                
     def forward(self, x):
@@ -43,10 +57,12 @@ class MVGLayer(nn.Module):
         x = torch.cat((x, torch.ones(x.shape[0], 1)), dim=1)
         
         # perform the reparameterisation trick
+
+        U_half = (self.posterior_W_u * self.posterior_W_u_mask)
+        V_half = (self.posterior_W_v * self.posterior_W_v_mask).T
         weight_epsilons = torch.normal(mean=0, std=1, size=self.posterior_W_m.shape)
         
-        output = x.matmul(self.posterior_W_m + torch.diag(torch.exp(0.5 * self.posterior_W_u)) \
-             @ weight_epsilons @ torch.diag(torch.exp(0.5 * self.posterior_W_v)))
+        output = x.matmul(self.posterior_W_m + U_half @ weight_epsilons @ V_half)
 
         return output
 
@@ -68,9 +84,16 @@ class MVGLayer(nn.Module):
         # but chose to implement from scratch
         #print(self.posterior_W_u)
 
+        #print(self.posterior_W_u)
+
         return MVG_KL(self.posterior_W_m, self.prior_W_m, 
-        torch.exp(self.posterior_W_u), torch.exp(self.prior_W_u), torch.exp(self.posterior_W_v), 
-        torch.exp(self.prior_W_v), self.input_size, self.output_size)
+        self.posterior_W_u,
+        self.prior_W_u,
+        self.posterior_W_u_mask,
+        self.posterior_W_v, 
+        self.prior_W_v, 
+        self.posterior_W_v_mask,
+        self.input_size, self.output_size)
         
     def update_prior(self):
         # update the prior to be the current posterior
@@ -84,8 +107,14 @@ class MVGLayer(nn.Module):
         nn.init.normal_(self.posterior_W_m, mean=0.0, std=1e-3)
 
         # give the weights low variance
-        self.posterior_W_u = nn.Parameter(torch.full((self.input_size,), math.log(1e-2)))
-        self.posterior_W_v = nn.Parameter(torch.full((self.output_size,), math.log(1e-2)))
+        # in addition to storing log variances, store each vector as a cholesky decomposition of the 
+        # positive definite U and V matrices
+
+        self.posterior_W_u = nn.Parameter(torch.normal(mean=1e-3, std=1e-2, size=(self.input_size,self.input_size)))
+        self.posterior_W_u_mask = torch.tril(torch.ones_like(self.posterior_W_u))
+        
+        self.posterior_W_v = nn.Parameter(torch.normal(mean=1e-3, std=1e-2, size=(self.output_size,self.output_size)))
+        self.posterior_W_v_mask = torch.tril(torch.ones_like(self.posterior_W_v))
 
 
 class MVG(nn.Module):
@@ -134,6 +163,8 @@ class MVG(nn.Module):
    
     def loss(self, batch_inputs, batch_targets, training_set_size):
         loss_fn = torch.nn.CrossEntropyLoss()
+
+        
         
         #print('batch_inputs', batch_inputs.shape)
         cross_entropy_loss = loss_fn(self(batch_inputs), batch_targets)
@@ -158,7 +189,7 @@ class MVG(nn.Module):
             # therefore we have divided through the eqn from (4) by N_t
             kl += layer.kl_divergence() / training_set_size
 
-        #print(f"elbo: {elbo}, kl:{kl}")
+        # print(f"elbo: {elbo}, kl:{kl}")
         elbo += kl
         return elbo
 
