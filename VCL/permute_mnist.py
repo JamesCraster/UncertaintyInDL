@@ -5,7 +5,7 @@ from torch.utils.data import TensorDataset, DataLoader
 import torchvision
 import torch
 import torch.nn as nn
-from models.mvg import MVG
+from models.mvg_full import MVG
 from models.basic_nn import BasicNN
 
 IMAGE_SIZE = 784

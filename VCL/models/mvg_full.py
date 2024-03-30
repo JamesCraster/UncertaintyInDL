@@ -2,7 +2,6 @@
 import torch
 import torch.nn as nn
 import math
-from .sqrtm import sqrtm
 
 def cholesky_compose(U_half, mask):
     return (U_half * mask) @ (U_half * mask).T
@@ -12,12 +11,10 @@ def cholesky_log_det(U_half):
 
 def MVG_KL(M_post, M_prior, U_post_half, U_prior_half, U_mask, V_post_half, V_prior_half, V_mask, input_size, output_size):
     U_post = cholesky_compose(U_post_half, U_mask)
-    U_prior = cholesky_compose(U_prior_half, U_mask)
     V_post = cholesky_compose(V_post_half, V_mask)
-    V_prior = cholesky_compose(V_prior_half, V_mask)
     
-    U_prior_inv = torch.linalg.inv(U_prior)
-    V_prior_inv = torch.linalg.inv(V_prior)
+    U_prior_inv = torch.cholesky_inverse(U_prior_half * U_mask)
+    V_prior_inv = torch.cholesky_inverse(V_prior_half * V_mask)
 
     first_term = torch.trace(U_prior_inv @ U_post) * torch.trace(V_prior_inv @ V_post)
     
@@ -45,10 +42,10 @@ class MVGLayer(nn.Module):
         # to constrain variance to be positive, store v instead where v = log(variance)
 
         self.prior_W_m = torch.zeros(self.input_size, self.output_size, requires_grad=False) 
-        self.prior_W_u = torch.full((self.input_size,self.input_size), 0)
-        self.prior_W_u.fill_diagonal_(1)
-        self.prior_W_v = torch.full((self.output_size,self.output_size), 0)
-        self.prior_W_v.fill_diagonal_(1)
+        self.prior_W_u = torch.full((self.input_size,self.input_size), 0.0)
+        self.prior_W_u.fill_diagonal_(1.0)
+        self.prior_W_v = torch.full((self.output_size,self.output_size), 0.0)
+        self.prior_W_v.fill_diagonal_(1.0)
 
         self.reset_posterior()
                
@@ -82,9 +79,6 @@ class MVGLayer(nn.Module):
 
         # This can be done in pytorch using MultivariateNormal and torch.distributions.kl.kl_divergence, 
         # but chose to implement from scratch
-        #print(self.posterior_W_u)
-
-        #print(self.posterior_W_u)
 
         return MVG_KL(self.posterior_W_m, self.prior_W_m, 
         self.posterior_W_u,
@@ -164,9 +158,6 @@ class MVG(nn.Module):
     def loss(self, batch_inputs, batch_targets, training_set_size):
         loss_fn = torch.nn.CrossEntropyLoss()
 
-        
-        
-        #print('batch_inputs', batch_inputs.shape)
         cross_entropy_loss = loss_fn(self(batch_inputs), batch_targets)
         for i in range(0, self.training_samples - 1):
             cross_entropy_loss += loss_fn(self(batch_inputs), batch_targets)
@@ -189,7 +180,6 @@ class MVG(nn.Module):
             # therefore we have divided through the eqn from (4) by N_t
             kl += layer.kl_divergence() / training_set_size
 
-        # print(f"elbo: {elbo}, kl:{kl}")
         elbo += kl
         return elbo
 
