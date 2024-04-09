@@ -9,7 +9,8 @@ Especially, note that the reference MVG code that exists (https://github.com/AML
 2. Is not set up for continual learning
 3. Is written in Theano, which is deprecated 
 4. Uses a highly complex pseudo data method for an analogy to GPs
-And hence my implementation of MVG-VI is very novel.
+
+Therefore my implementation of MVG-VI is very novel.
 
 See the Generate Data folder for permuted MNIST. 
 For permuted MNIST, their permutations are stored in JSON, so you can reproduce the datasets exactly. There is code to generate the pkl files, but these are too large to commit (without using LFS)
