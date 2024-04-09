@@ -104,18 +104,20 @@ class MVGFullLayer(nn.Module):
         # in addition to storing log variances, store each vector as a cholesky decomposition of the 
         # positive definite U and V matrices
 
-        self.posterior_W_u = nn.Parameter(torch.normal(mean=1e-3, std=1e-2, size=(self.input_size,self.input_size)))
+        self.posterior_W_u = nn.Parameter(torch.full((self.input_size,self.input_size), 1e-3))
         self.posterior_W_u_mask = torch.tril(torch.ones_like(self.posterior_W_u))
         
-        self.posterior_W_v = nn.Parameter(torch.normal(mean=1e-3, std=1e-2, size=(self.output_size,self.output_size)))
+        self.posterior_W_v = nn.Parameter(torch.full((self.output_size,self.output_size), 1e-3))
         self.posterior_W_v_mask = torch.tril(torch.ones_like(self.posterior_W_v))
+
+
 
 
 class MVGFull(nn.Module):
     def __init__(self, input_size, hidden_size, output_size):
         super(MVGFull, self).__init__()
 
-        self.training_samples = 3
+        self.training_samples = 5
         self.testing_samples = 10
         
         self.variational_layers = nn.Sequential(

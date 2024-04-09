@@ -14,5 +14,19 @@ class BasicNN(nn.Module):
             nn.Linear(hidden_size, output_size)
         )
 
+    def loss(self,batch_inputs, batch_targets, train_set_size):
+        loss_fn = torch.nn.CrossEntropyLoss()
+        cross_entropy_loss = loss_fn(self(batch_inputs), batch_targets)
+        return cross_entropy_loss
+
+    def predict(self, x):
+        return self.model(x)
+
     def forward(self, x):
         return self.model(x)
+    
+    def update_prior(self):
+        pass
+
+    def reset_posterior(self):
+        pass

@@ -6,9 +6,10 @@ fig, axs = plt.subplots(1, 2, figsize=(10, 5))
 
 
 
+## SPLIT MNIST
 
 MVG_VI = [90, 80, 70, 60, 50]
-VCL = [30, 40 , 30 , 50 , 60]
+VCL = [100, 56.4 , 41.5 , 26.3 , 13.7]
 MVG_VI_no_prior = [50, 40, 30, 50, 60]
 VCL_no_prior = [20, 40, 30, 50, 60]
 
@@ -20,8 +21,11 @@ axs[0].plot(x_split, VCL, marker='o')
 axs[0].plot(x_split, MVG_VI_no_prior, marker='o')
 axs[0].plot(x_split, VCL_no_prior, marker='o')
 
+
+## Permuted MNIST
+
 MVG_VI = [90, 80, 70, 60, 50, 90, 80, 70, 60, 50]
-VCL = [30, 40 , 30 , 50 , 60, 90, 80, 70, 60, 50]
+VCL = [99.7, 94.8, 92.4 , 89.0 , 88.2, 83.8, 84.1, 82.2, 81.8, 78.0]
 MVG_VI_no_prior = [50, 40, 30, 50, 60, 90, 80, 70, 60, 50]
 VCL_no_prior = [20, 40, 30, 50, 60, 90, 80, 70, 60, 50]
 

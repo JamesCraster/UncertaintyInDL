@@ -48,6 +48,8 @@ class MVGLayer(nn.Module):
         output = x.matmul(self.posterior_W_m + torch.diag(torch.exp(0.5 * self.posterior_W_u)) \
              @ weight_epsilons @ torch.diag(torch.exp(0.5 * self.posterior_W_v)))
 
+
+        print(self.posterior_W_u)
         return output
 
     def forward_no_reparam(self,x):
@@ -84,15 +86,16 @@ class MVGLayer(nn.Module):
         nn.init.normal_(self.posterior_W_m, mean=0.0, std=1e-3)
 
         # give the weights low variance
-        self.posterior_W_u = nn.Parameter(torch.full((self.input_size,), math.log(1e-2)))
-        self.posterior_W_v = nn.Parameter(torch.full((self.output_size,), math.log(1e-2)))
+        # remember, positive definite matrices cannot have negative diagonal entries
+        self.posterior_W_u = nn.Parameter(torch.full((self.input_size,), math.log(1e-3)))
+        self.posterior_W_v = nn.Parameter(torch.full((self.output_size,), math.log(1e-3)))
 
 
 class MVG(nn.Module):
     def __init__(self, input_size, hidden_size, output_size):
         super(MVG, self).__init__()
 
-        self.training_samples = 3
+        self.training_samples = 5
         self.testing_samples = 10
         
         self.variational_layers = nn.Sequential(

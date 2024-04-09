@@ -39,6 +39,7 @@ class MFVILayer(nn.Module):
         bias_epsilons = torch.normal(mean=0, std=1, size=self.posterior_b_m.shape)
 
         output += self.posterior_b_m + (torch.exp(0.5 * self.posterior_b_v) * bias_epsilons).t()
+        print(self.posterior_W_v)
         return output
 
     def forward_no_reparam(self,x):

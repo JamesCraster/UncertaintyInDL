@@ -4,8 +4,6 @@ import torch
 import torch.nn as nn
 from torch.utils.data import TensorDataset, DataLoader
 import torchvision
-from models.vcl import VCL
-from models.mvg import MVG
 from models.basic_nn import BasicNN
 
 IMAGE_SIZE = 784
@@ -111,5 +109,5 @@ def test_nn(model, test_dataset):
         return sum(accuracies)/len(accuracies)
 
 tasks = []
-model = MVG(IMAGE_SIZE, 100, 10)
+model = BasicNN(IMAGE_SIZE, 100, 10)
 train_nn(model, tasks)

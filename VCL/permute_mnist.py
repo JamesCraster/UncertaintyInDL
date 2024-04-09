@@ -5,8 +5,10 @@ from torch.utils.data import TensorDataset, DataLoader
 import torchvision
 import torch
 import torch.nn as nn
+from models.mvg import MVG
 from models.mvg_full import MVGFull
 from models.basic_nn import BasicNN
+from models.vcl import VCL
 
 IMAGE_SIZE = 784
 
@@ -36,7 +38,7 @@ def get_permuted_mnist():
 
 
 NUM_TASKS = 10
-EPOCHS_PER_TASK = 10
+EPOCHS_PER_TASK = 5
 
 def train_nn(model, tasks):
     ## a hack specific to MFVI in which you have to train the means for the weights on
@@ -97,6 +99,7 @@ def train_nn(model, tasks):
             print(f'Testing performance on task {i} : {test_performance} ')
             average += test_performance
         print(f'Mean test performance over tasks: {average/(task + 1)}')
+        
         model.update_prior()
 
         # Improving and Understanding Variational Continual Learning 
