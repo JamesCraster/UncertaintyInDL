@@ -29,9 +29,9 @@ def MVG_KL(M_post, M_prior, U_post_half, U_prior_half, U_mask, V_post_half, V_pr
     return 0.5 * output
 
 
-class MVGLayer(nn.Module):
+class MVGFullLayer(nn.Module):
     def __init__(self, input_size, output_size, bias=True):
-        super(MVGLayer, self).__init__()
+        super(MVGFullLayer, self).__init__()
 
         self.output_size = output_size
         # add an extra column for the bias term
@@ -111,19 +111,19 @@ class MVGLayer(nn.Module):
         self.posterior_W_v_mask = torch.tril(torch.ones_like(self.posterior_W_v))
 
 
-class MVG(nn.Module):
+class MVGFull(nn.Module):
     def __init__(self, input_size, hidden_size, output_size):
-        super(MVG, self).__init__()
+        super(MVGFull, self).__init__()
 
         self.training_samples = 3
         self.testing_samples = 10
         
         self.variational_layers = nn.Sequential(
-            MVGLayer(input_size, hidden_size),
+            MVGFullLayer(input_size, hidden_size),
             # in the original paper, 2 hidden layers are used
-            MVGLayer(hidden_size, hidden_size),
-            MVGLayer(hidden_size, hidden_size),
-            MVGLayer(hidden_size, output_size)
+            MVGFullLayer(hidden_size, hidden_size),
+            MVGFullLayer(hidden_size, hidden_size),
+            MVGFullLayer(hidden_size, output_size)
         )
 
         # coreset contains examples in episodic memory
