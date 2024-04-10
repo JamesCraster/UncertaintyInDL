@@ -14,3 +14,4 @@ Therefore my implementation of MVG-VI is very novel.
 
 See the Generate Data folder for permuted MNIST. 
 For permuted MNIST, their permutations are stored in JSON, so you can reproduce the datasets exactly. There is code to generate the pkl files, but these are too large to commit (without using LFS)
+In the end, we only used permuted_mnist_0, as the experiments take a long time to run.

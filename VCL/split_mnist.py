@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import TensorDataset, DataLoader
 import torchvision
-from models.basic_nn import BasicNN
+from models.mvg_full import MVGFull
 
 IMAGE_SIZE = 784
 
@@ -34,7 +34,7 @@ def get_split_mnist():
         yield element
 
 NUM_TASKS = 5
-EPOCHS_PER_TASK = 10
+EPOCHS_PER_TASK = 30
 
 def train_nn(model, tasks):
     ## a hack specific to MFVI in which you have to train the means for the weights on
@@ -109,5 +109,5 @@ def test_nn(model, test_dataset):
         return sum(accuracies)/len(accuracies)
 
 tasks = []
-model = BasicNN(IMAGE_SIZE, 100, 10)
+model = MVGFull(IMAGE_SIZE, 100, 10)
 train_nn(model, tasks)

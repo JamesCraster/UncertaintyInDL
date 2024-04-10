@@ -38,7 +38,7 @@ def get_permuted_mnist():
 
 
 NUM_TASKS = 10
-EPOCHS_PER_TASK = 5
+EPOCHS_PER_TASK = 30
 
 def train_nn(model, tasks):
     ## a hack specific to MFVI in which you have to train the means for the weights on
